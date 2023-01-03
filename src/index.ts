@@ -1,60 +1,15 @@
+import { home } from './pages/home';
+import { makeBadge, makeStatusResponse } from './utils';
+
 export interface Env {
-  // Example binding to KV. Learn more at https://developers.cloudflare.com/workers/runtime-apis/kv/
   DB: KVNamespace;
-  //
-  // Example binding to Durable Object. Learn more at https://developers.cloudflare.com/workers/runtime-apis/durable-objects/
-  // MY_DURABLE_OBJECT: DurableObjectNamespace;
-  //
-  // Example binding to R2. Learn more at https://developers.cloudflare.com/workers/runtime-apis/r2/
-  // MY_BUCKET: R2Bucket;
 }
 
-// @ts-ignore
-import Home from './home.html';
-
-function handleHome() {
-  return new Response(Home, {
-    headers: {
-      'Content-Type': 'text/html;charset=utf-8'
-    }
-  });
-}
-
-function handleBadRequest() {
-  return new Response(null, {
-    status: 400
-  });
-}
-
-async function handleVisit(searchParams: URLSearchParams, env: Env) {
-  const page = searchParams.get('page');
-
-  if (!page) return handleBadRequest();
-
-  const kvPage = await env.DB.get(page);
-
-  let count = 1;
-
-  if (!kvPage) {
-    await env.DB.put(page, '1');
-  } else {
-    count = parseInt(kvPage) + 1;
-
-    await env.DB.put(page, count + '');
-  }
-
-  return new Response(JSON.stringify({ visits: count }), {
-    headers: {
-      'Content-Type': 'application/json'
-    }
-  });
-}
-
-function handleNotFound() {
-  return new Response(null, {
-    status: 404
-  });
-}
+const statusCodes = {
+  METHOD_NOT_ALLOWED: 405,
+  BAD_REQUEST: 400,
+  NOT_FOUND: 404
+};
 
 export default {
   async fetch(
@@ -62,7 +17,53 @@ export default {
     env: Env,
     ctx: ExecutionContext
   ): Promise<Response> {
-    const { pathname, searchParams } = new URL(request.url);
+    const { url, method } = request;
+
+    if (method !== 'GET')
+      return makeStatusResponse(statusCodes.METHOD_NOT_ALLOWED);
+
+    const { pathname, searchParams } = new URL(url);
+
+    const handleHome = () => {
+      return new Response(home, {
+        headers: {
+          'Content-Type': 'text/html;charset=utf-8'
+        }
+      });
+    };
+
+    const handleNotFound = () => {
+      return makeStatusResponse(statusCodes.NOT_FOUND);
+    };
+
+    const handleVisit = async (searchParams: URLSearchParams, env: Env) => {
+      const username = searchParams.get('username');
+
+      if (!username) return makeStatusResponse(statusCodes.BAD_REQUEST);
+
+      const exists = await fetch(`https://api.github.com/users/${username}`, {
+        headers: {
+          'User-Agent': 'request'
+        }
+      });
+
+      if (exists.status === 404) return handleNotFound();
+
+      const count = await env.DB.get(username);
+
+      let newCount = 0;
+
+      !count ? (newCount += 1) : (newCount = parseInt(count) + 1);
+
+      await env.DB.put(username, String(newCount));
+
+      return new Response(makeBadge(newCount), {
+        headers: {
+          'Content-Type': 'image/svg+xml;charset=utf-8',
+          'Cache-Control': 'no-cache'
+        }
+      });
+    };
 
     switch (pathname) {
       case '/':
