@@ -60,7 +60,8 @@ export default {
       return new Response(makeBadge(newCount), {
         headers: {
           'Content-Type': 'image/svg+xml;charset=utf-8',
-          'Cache-Control': 'no-cache'
+          'Cache-Control': 'no-cache',
+          ETag: `"${Date.now() + ''}"`
         }
       });
     };
