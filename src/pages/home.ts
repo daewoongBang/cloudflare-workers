@@ -12,7 +12,7 @@ export const home = `
     <ul>
       <li>
         All you have to do is call (GET) this URL:
-        <code>https://worker-visitors.bdw1572.workers.dev/visit?username=$USERNAME</code>
+        <code>https://workers-visitors.bdw1572.workers.dev/visit?username=$USERNAME</code>
       </li>
       <li>Replace $USERNAME for your github username.</li>
     </ul>
